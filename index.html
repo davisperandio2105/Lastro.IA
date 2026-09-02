@@ -458,12 +458,10 @@ pre{background:#FAF8F3;border:1px solid var(--line);border-radius:9px;padding:14
 
       <section class="view" id="v-atlas">
         <div class="card chat">
-          <header><span class="cap">Assessor — acompanha seus números e responde sobre eles</span><div style="display:flex;gap:8px;align-items:center">
-              <div style="display:flex;gap:8px;align-items:center">
-              <span class="cap" id="atStatus">motor local</span>
+          <header><span class="cap">Assessor</span>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span class="cap" id="atStatus">verificando…</span>
               <button class="btn ghost sm" id="limparChat" style="padding:4px 10px;font-size:11.5px">Limpar</button>
-            </div>
-              <button class="btn ghost sm" id="limparChat" style="padding:3px 9px;font-size:11px">Limpar</button>
             </div></header>
           <div class="hints" id="hints"></div>
           <div class="msgs" id="msgs"></div>
@@ -667,6 +665,10 @@ pre{background:#FAF8F3;border:1px solid var(--line);border-radius:9px;padding:14
           <div class="card"><header><span class="cap">Seu perfil</span><button class="btn ghost sm" id="cfgPerfil">Editar nome e foto</button></header>
             <div class="bd"><p class="note">Nome exibido: <b id="cfgNome">—</b></p><div id="cfgPerfilMsg" style="margin-top:9px"></div></div></div>
           <div class="card"><header><span class="cap">Conexão</span></header><div class="bd" id="cfgInfo"></div></div>
+          <div class="card"><header><span class="cap">Diagnóstico</span>
+            <button class="btn ghost sm" id="rodarDiag">Rodar testes</button></header>
+            <div class="bd"><div class="rows" id="diagLista">
+              <p class="vazio">Clique em Rodar testes para ver o que está funcionando.</p></div></div></div>
           <div class="card"><header><span class="cap">Atlas — endpoint do modelo</span></header><div class="bd">
             <p class="note">O app tenta a API direta primeiro. Se você publicar a Edge Function, cole a URL aqui e ela passa a ser usada — é assim que a chave fica fora do navegador.</p>
             <div class="form" style="margin-top:12px">
@@ -743,7 +745,7 @@ const TAREFA_PADRAO=[['Treinar','5x na semana','#3F6B4A'],['Beber 4L de água','
   ['Dieta','todo dia','#C2703D'],['Ler pro TCC','todo dia','#7A4E9C'],['Dormir até 23h','todo dia','#9B3B34']];
 
 /* estado único do app */
-const S={modo:'demo',sb:null,user:null,endpoint:'',
+const S={modo:'demo',sb:null,user:null,endpoint:(()=>{try{return localStorage.getItem('lastro_endpoint')||''}catch(e){return''}})(),
   perfil:{nome:'',xp:0,reserva_inicial:0,orcamento_mensal:null},
   categorias:[],lancamentos:[],tarefas:[],metas:[],eventos:[],cartoes:[],investimentos:[],recorrencias:[],pagamentos:[],mensagens:[],conversa:[],
   diaSel:null,semanaOff:0,mesRef:null,finMes:null};
@@ -2942,15 +2944,11 @@ function atlasLocal(q){
   }
 
   /* ---------- quanto posso gastar ---------- */
-  if(/por dia|quanto posso|ate o fim|fechar o mes|sobra por dia/.test(Q)){
-    const d=Math.max(1,c.diasRestantesNoMes);
-    const teto=S.perfil.orcamento_mensal;
-    const abertas=contas.filter(p=>!estaPago(p.rec.id,MES));
-    let r=`Saldo de ${brl(c.financeiro.saldo)} e ${c.diasRestantesNoMes} dias de mês.`;
-    if(abertas.length) r+=` Ainda há ${brl(somaP(abertas))} em contas fixas a pagar, o que deixa ${brl(c.financeiro.saldo-somaP(abertas))} livres — ${brl((c.financeiro.saldo-somaP(abertas))/d)} por dia.`;
-    else r+=` Dá ${brl(c.financeiro.saldo/d)} por dia.`;
-    if(teto) r+=`\n\nPelo teto mensal: restam ${brl(Math.max(0,teto-sai))}, ou ${brl(Math.max(0,teto-sai)/d)} por dia.`;
-    return r;
+  if(/por dia|quanto posso|quanto devo|ate o fim|fechar o mes|sobra por dia|gastar ainda/.test(Q)){
+    const f=folgaDoMes();
+    if(f.sobra<0)
+      return `Não sobra: são ${brl(f.caixa)} em caixa contra ${brl(f.pagar)} que ainda vence — faltam ${brl0(-f.sobra)}.\n\nDá para virar adiando alguma conta ou antecipando entrada. Quer ver o que está em aberto?`;
+    return `Sobram ${brl(f.sobra)} depois de honrar tudo que ainda vence — ${brl(f.porDia)} por dia nos ${f.dias} dias que faltam.\n\nSão ${brl(f.caixa)} em caixa contra ${brl(f.pagar)} de compromissos.`;
   }
 
   /* ---------- metas ---------- */
@@ -3230,8 +3228,14 @@ function renderConversa(){
   const box=$('#msgs'); if(!box) return;
   box.innerHTML='';
   if(!S.mensagens.length){
-    bolha(`Sou seu assessor, ${S.perfil.nome}. Tenho seus lançamentos, contas, cartões e metas à mão — `
-      +'pergunte o que quiser, ou me mande registrar algo como "lance 50 na padaria".','at','pronto');
+    const f=folgaDoMes(), v=vencidas().length;
+    bolha(v
+      ? `${S.perfil.nome}, comecei olhando o que está atrasado: ${v} conta${v>1?'s':''} vencida${v>1?'s':''}. Quer que eu liste?`
+      : f.sobra>=0
+        ? `${S.perfil.nome}, fechei a conta do mês: depois de tudo que ainda vence, sobram ${brl(f.sobra)}.`
+        : `${S.perfil.nome}, os compromissos deste mês passam o seu caixa em ${brl0(-f.sobra)}. Vale olharmos o que dá para adiar.`,
+      'at','');
+    bolha('Me pergunte o que quiser sobre seu dinheiro. Se preferir registrar algo, é só dizer — "gastei 50 na padaria" e eu lanço.','at','');
     return;
   }
   S.mensagens.forEach(m=>{
@@ -3250,9 +3254,59 @@ $('#limparChat').onclick=async()=>{
 $('#send').onclick=enviar;
 $('#ask').addEventListener('keydown',e=>{if(e.key==='Enter')enviar();});
 
+async function rodarDiagnostico(){
+  const box=$('#diagLista'); box.innerHTML='';
+  const linha=(nome,ok,detalhe)=>{
+    box.appendChild(el('div','row',
+      `<span class="dot" style="background:${ok?'var(--g)':'var(--red)'}"></span>
+       <div class="grow"><div class="t">${nome}</div><div class="m">${detalhe}</div></div>
+       <span class="val" style="color:${ok?'var(--g)':'var(--red)'}">${ok?'ok':'falhou'}</span>`));
+  };
+
+  linha('Armazenamento do navegador',storageOk(),
+    storageOk()?'sessão e preferências persistem entre visitas'
+      :'bloqueado — você vai precisar logar toda vez. Comum em file:// ou aba anônima.');
+
+  if(S.modo==='live'){
+    try{
+      const {data:{session}}=await S.sb.auth.getSession();
+      linha('Sessão salva',!!session,session?'login continua ativo ao recarregar':'a sessão não está sendo guardada');
+    }catch(e){ linha('Sessão salva',false,e.message); }
+
+    try{
+      const antes=S.perfil.nome;
+      await db.salvarPerfil({nome:antes});
+      linha('Gravação do perfil',true,'o banco aceitou e devolveu "'+S.perfil.nome+'"');
+    }catch(e){ linha('Gravação do perfil',false,e.message); }
+
+    try{
+      const {error}=await S.sb.from('mensagens').select('id').limit(1);
+      linha('Histórico do assessor',!error,error?error.message:'tabela mensagens acessível');
+    }catch(e){ linha('Histórico do assessor',false,e.message); }
+  } else {
+    linha('Banco de dados',false,'você está no modo demonstração; nada é gravado');
+  }
+
+  if(S.endpoint){
+    try{
+      const h={'Content-Type':'application/json'};
+      if(S.modo==='live'){ const {data:{session}}=await S.sb.auth.getSession();
+        if(session) h.Authorization='Bearer '+session.access_token; }
+      const r=await fetch(S.endpoint,{method:'POST',headers:h,
+        body:JSON.stringify({pergunta:'teste de conexão',mensagens:[{role:'user',content:'responda apenas: ok'}]})});
+      linha('Assessor (Edge Function)',r.ok,r.ok?'respondeu normalmente':'HTTP '+r.status+' — '+(await r.text()).slice(0,90));
+    }catch(e){ linha('Assessor (Edge Function)',false,e.message); }
+  } else {
+    linha('Assessor (Edge Function)',false,
+      'sem endpoint configurado. Sem ele o assessor responde só pelo motor local, que não conversa.');
+  }
+}
+$('#rodarDiag').onclick=rodarDiagnostico;
+
 $('#salvarEndpoint').onclick=()=>{
   const v=$('#cfgEndpoint').value.trim();
   S.endpoint=v;
+  try{ v?localStorage.setItem('lastro_endpoint',v):localStorage.removeItem('lastro_endpoint'); }catch(e){}
   msg('#epMsg',v?'Atlas passa a usar <code>'+v+'</code>.':'Endpoint limpo. Atlas volta a tentar a API direta.','ok');
   $('#atStatus').textContent=v?'edge function':'motor local';
 };
@@ -3319,8 +3373,11 @@ Deno.serve(async (req) => {
 /* =====================================================================
    10. BOOT
    ===================================================================== */
-function renderTudo(){ renderConversa(); renderPerfil(); renderDashboard(); renderCompromissos(); renderTarefas(); renderMetas(); renderFin(); renderAgenda(); }
+function renderTudo(){
+  $('#atStatus').textContent=S.endpoint?'assessor conectado':'sem endpoint — modo offline';
+  renderConversa(); renderPerfil(); renderDashboard(); renderCompromissos(); renderTarefas(); renderMetas(); renderFin(); renderAgenda(); }
 $('#btnOlho').onclick=alternarVisibilidade; pintaOlho();
+if(S.endpoint) $('#cfgEndpoint').value=S.endpoint;
 $('#cfgPerfil').onclick=menuFoto;
 $('#fData').value=HOJE;
 setAuthTab('entrar');
