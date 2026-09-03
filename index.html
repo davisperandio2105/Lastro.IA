@@ -2932,7 +2932,7 @@ function atlasLocal(q){
       v.length?`${v.length} conta${v.length>1?'s':''} em atraso, somando ${brl(v.reduce((a,b)=>a+b.valor,0))}.`:'Nada em atraso.',
       `Rotina: ${c.tarefas.filter(t=>t.feitoHoje).length} de ${c.tarefas.filter(t=>t.valeHoje).length} tarefas fechadas hoje.`]);
   }
-  if(tem(/quanto (eu )?tenho|meu saldo|saldo atual|em caixa|dinheiro disponivel|patrimonio/)){
+  if(tem(/quanto (eu )?tenho|meu saldo|saldo|em caixa|dinheiro disponivel|patrimonio|quanto sobrou no total|total que tenho/)){
     const f=folgaDoMes();
     const inv=c.investimentos.atual;
     return lista([
@@ -2970,7 +2970,7 @@ function atlasLocal(q){
   }
 
   /* ===================== CONTAS FIXAS ===================== */
-  if(tem(/conta fixa|contas fixas|conta a pagar|contas a pagar|a vencer|boleto|falta pagar|o que pagar|vence quando/)){
+  if(tem(/conta fixa|contas fixas|conta a pagar|contas a pagar|a vencer|boleto|falta pagar|o que pagar|vence quando|minhas contas|contas do mes/)){
     if(!contas.length) return `Nenhuma conta fixa cadastrada ${rotulo}.`;
     const pagas=contas.filter(p=>estaPago(p.rec.id,M));
     const abertas=contas.filter(p=>!estaPago(p.rec.id,M));
@@ -3011,7 +3011,7 @@ function atlasLocal(q){
   }
 
   /* ===================== INVESTIMENTOS ===================== */
-  if(tem(/investiment|rendiment|carteira|aplicad|rendeu|tesouro|cdb|cripto|acao|acoes/)){
+  if(tem(/investiment|rendiment|carteira|aplicad|rendeu|rende|tesouro|cdb|cripto|bitcoin|acao|acoes|renda fixa|renda variavel/)){
     const i=c.investimentos;
     if(!i.itens.length) return 'Nenhum investimento cadastrado. Finanças → Investimentos → + Novo.';
     const pct=i.aplicado?(i.rendimento/i.aplicado*100).toFixed(2):'0';
@@ -3031,14 +3031,14 @@ function atlasLocal(q){
     if(!uso) return `Nada registrado em ${cit.nome} ${rotulo}.`;
     return lista([`${cit.nome} ${rotulo}: ${brl(uso)}${sai?` — ${Math.round(uso/sai*100)}% das saídas`:''}.`,'',...itens]);
   }
-  if(tem(/onde|vazando|maior gasto|maiores gastos|gastando|gastei|no que|com o que/)){
+  if(tem(/onde|vazando|maior gasto|maiores gastos|gastando|gastei|gasto|gastos|despesa|saida|saidas|no que|com o que|total de gast|quanto sai|quanto saiu/)){
     if(!cats.length) return `Nada registrado como saída ${rotulo}.`;
     const top=cats.slice(0,5).map(([k,v])=>`· ${k} — ${brl(v)} (${Math.round(v/sai*100)}%)`);
     const maiores=movimentos(M).filter(l=>l.tipo==='despesa').sort((a,b)=>b.valor-a.valor).slice(0,3)
       .map(l=>`· ${l.descricao} — ${brl(l.valor)}`);
     return lista([`Saíram ${brl(sai)} ${rotulo}. Por categoria:`,...top,'','Maiores lançamentos:',...maiores]);
   }
-  if(tem(/entrou|entrada|recebi|receita|salario|ganhei|quanto ganho/)){
+  if(tem(/entrou|entrada|entradas|recebi|receita|receitas|salario|ganhei|quanto ganho|renda|faturei/)){
     const recs=movimentos(M).filter(l=>l.tipo==='receita');
     if(!recs.length) return `Nenhuma entrada registrada ${rotulo}.`;
     return lista([`Entraram ${brl(ent)} ${rotulo}:`,...recs.map(l=>`· ${l.descricao} — ${brl(l.valor)}`)]);
@@ -3066,7 +3066,7 @@ function atlasLocal(q){
   }
 
   /* ===================== ROTINA E METAS ===================== */
-  if(tem(/tarefa|habito|sequencia|streak|rotina|treino|quebr|constancia|disciplina/)){
+  if(tem(/tarefa|tarefas|habito|habitos|sequencia|streak|rotina|treino|treinar|quebr|constancia|disciplina|fiz hoje|falta fazer/)){
     const ts=c.tarefas;
     if(!ts.length) return 'Nenhuma tarefa cadastrada. Rotina → Tarefas → + Nova.';
     const hoje_=ts.filter(t=>t.valeHoje);
@@ -3106,7 +3106,7 @@ function atlasLocal(q){
     return 'O rotativo do cartão é o crédito mais caro do mercado brasileiro, com juros que costumam passar de 400% ao ano. Pagar o mínimo joga o resto para o rotativo.\n\nSe não der para quitar a fatura, o caminho menos ruim quase sempre é trocar por uma dívida mais barata: parcelamento da própria fatura, crédito consignado ou empréstimo com garantia. Vale comparar o custo total antes.';
   if(tem(/vale a pena parcelar|parcelar ou a vista|desconto a vista/))
     return 'A conta é simples: se o desconto à vista for maior que o rendimento do dinheiro no período, à vista ganha.\n\nParcelado sem juros só compensa se você realmente investir a diferença — e se a parcela não comprometer seu limite quando precisar dele. Hoje suas parcelas futuras somam '+brl(devedorDe())+'.';
-  if(tem(/como economizar|dicas|reduzir gasto|cortar gasto|poupar mais/)){
+  if(tem(/como economizar|economizar|dicas|reduzir|cortar|poupar|gastar menos|apertar/)){
     if(!cats.length) return 'Registre alguns gastos primeiro e eu aponto onde está o vazamento.';
     const top=cats.slice(0,2);
     return lista([`Olhando seus números, o corte com mais efeito está aqui:`,
@@ -3118,9 +3118,28 @@ function atlasLocal(q){
   if(tem(/inflacao|selic|cdi|renda fixa|onde investir|melhor investimento/))
     return 'Não recomendo investimento específico — não é meu papel e depende do seu prazo e tolerância a risco.\n\nO que posso dizer: antes de investir, o padrão é ter reserva de emergência formada e nenhuma dívida cara em aberto. Suas parcelas futuras hoje somam '+brl(devedorDe())+'.';
 
+  /* ===================== RESGATE ======================
+     A frase nao bateu com nenhum padrao, mas se ela cita um assunto
+     que eu domino, respondo o mais proximo em vez de dizer "nao entendi". */
+  const assuntos=[
+    [/cart|fatura|limite/,           ()=>atlasLocal('como estão meus cartões')],
+    [/parcel|divid|devo/,            ()=>atlasLocal('quanto devo em parcelas')],
+    [/conta|pagar|vencer|boleto/,    ()=>atlasLocal('o que falta pagar')],
+    [/gast|despesa|saida|caro/,      ()=>atlasLocal('onde meu dinheiro foi')],
+    [/entrad|receb|salari|renda/,    ()=>atlasLocal('quanto entrou')],
+    [/saldo|caixa|dinheiro|tenho|sobra|total/, ()=>atlasLocal('quanto eu tenho')],
+    [/invest|rende|carteira/,        ()=>atlasLocal('meus investimentos')],
+    [/meta|objetivo|juntar|guardar/, ()=>atlasLocal('minhas metas')],
+    [/tarefa|habito|treino|rotina/,  ()=>atlasLocal('como estão minhas tarefas')],
+    [/agenda|compromisso|marcad/,    ()=>atlasLocal('o que tenho na agenda')],
+    [/mes|periodo|futuro|frente/,    ()=>atlasLocal('o que vem nos próximos meses')],
+    [/economi|poupar|cortar|reduzir/,()=>atlasLocal('como economizar')]
+  ];
+  for(const [rx,fn] of assuntos) if(rx.test(Q)) return fn();
+
   /* ===================== NÃO ENTENDI ===================== */
   return lista([
-    'Não entendi essa. Ainda estou no modo offline, respondendo por regras — então preciso de perguntas mais diretas.',
+    'Não entendi essa. Sou mais útil com perguntas sobre os seus números.',
     '',
     'Tente algo como:',
     '· quanto posso gastar · o que está vencido · onde meu dinheiro foi',
