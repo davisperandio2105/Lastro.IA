@@ -460,7 +460,7 @@ pre{background:#FAF8F3;border:1px solid var(--line);border-radius:9px;padding:14
         <div class="card chat">
           <header><span class="cap">Assessor</span>
             <div style="display:flex;gap:8px;align-items:center">
-              <span class="cap" id="atStatus">verificando…</span>
+              <span class="cap" id="atStatus">respostas diretas</span>
               <button class="btn ghost sm" id="limparChat" style="padding:4px 10px;font-size:11.5px">Limpar</button>
             </div></header>
           <div class="hints" id="hints"></div>
@@ -2829,189 +2829,266 @@ function atlasLocal(q){
   const c=contexto();
   const Q=q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const M=mesDaPergunta(Q)||MES;
-  const rotulo=M===MES?'neste mes':nomeMes(M);
+  const rotulo=M===MES?'neste mês':'em '+nomeMes(M);
+  const nome=S.perfil.nome||'você';
   const ent=soma('receita',M), sai=soma('despesa',M), cats=porCat(M);
   const proj=recorrenciasDoMes(M);
   const contas=proj.filter(p=>ehConta(p.rec));
   const assinaturas=proj.filter(p=>!ehConta(p.rec)&&!p.rec.parcelas);
   const parcelas=proj.filter(p=>!ehConta(p.rec)&&p.rec.parcelas);
   const somaP=a=>a.reduce((s,p)=>s+p.valor,0);
-  const fixas=somaP(contas), variaveis=sai-fixas-somaP(assinaturas)-somaP(parcelas);
+  const fixas=somaP(contas);
+  const tem=rx=>rx.test(Q);
+  const lista=a=>a.join('\n');
 
-  /* ---------- identidade ---------- */
-  if(/meu nome|quem sou|como me chamo|meu perfil|meu rank|meu nivel|meu xp/.test(Q))
-    return `Voce e ${c.usuario.nome}, rank ${c.usuario.rank}, com ${c.usuario.xp.toLocaleString('pt-BR')} XP. Hoje fechou ${c.tarefas.filter(t=>t.feitoHoje).length} de ${c.tarefas.length} tarefas.`
-      .normalize('NFC').replace('Voce','Você').replace(' e rank',' é rank');
+  /* ===================== CONVERSA ===================== */
+  if(tem(/^(oi|ola|e ai|eai|bom dia|boa tarde|boa noite|opa|salve|fala)\b/)){
+    const f=folgaDoMes(), v=vencidas().length;
+    return `Fala, ${nome}. ${v?`Tem ${v} conta${v>1?'s':''} vencida${v>1?'s':''} esperando.`
+      :f.sobra>=0?`Sobram ${brl(f.sobra)} depois dos compromissos do mês.`
+      :`O mês está apertado: faltam ${brl0(-f.sobra)}.`} No que posso ajudar?`;
+  }
+  if(tem(/obrigad|valeu|show|perfeito|legal|otimo|massa|top\b/))
+    return 'Por nada. Se quiser, me chame quando lançar algo ou antes de uma compra maior.';
+  if(tem(/tchau|falou|ate mais|ate logo|boa noite$/))
+    return 'Até. Deixo tudo anotado por aqui.';
+  if(tem(/quem e voce|voce e quem|o que voce e|voce e uma ia|e um rob/))
+    return 'Sou o assessor do Lastro.IA. Leio seus lançamentos, contas, cartões, metas e rotina, e respondo em cima deles — sem inventar número.';
+  if(tem(/meu nome|quem sou|como me chamo|meu perfil/))
+    return `Você é ${nome}. Trabalho com ${S.lancamentos.length} lançamentos, ${S.cartoes.length} cartão${S.cartoes.length===1?'':'ões'}, ${(S.recorrencias||[]).length} cobranças recorrentes e ${S.metas.length} objetivo${S.metas.length===1?'':'s'} seus.`;
+  if(tem(/o que voce faz|o que voce sabe|como funciona|me ajuda com o que|pode fazer|comandos|ajuda$/))
+    return lista([
+      'Pergunte sobre seu dinheiro:',
+      '· quanto posso gastar · o que está vencido · onde meu dinheiro foi',
+      '· como estão meus cartões · quanto devo em parcelas · meus investimentos',
+      '· quanto gastei em Mercado · comparar com o mês passado · como estão minhas metas',
+      '',
+      'Ou me mande registrar:',
+      '· gastei 50 na padaria · recebi 450 de freela',
+      '· agende longão dia 12 · marca treinar como feito',
+      '',
+      'Também explico o básico: reserva de emergência, juros do rotativo, quando vale parcelar.']);
 
-  if(/^(oi|ola|e ai|bom dia|boa tarde|boa noite|opa|salve)\b/.test(Q))
-    return `Fala, ${c.usuario.nome}. Saldo do mês em ${brl0(c.financeiro.saldo)}, ${c.tarefas.filter(t=>t.feitoHoje).length}/${c.tarefas.length} tarefas fechadas e ${c.diasRestantesNoMes} dias até virar o mês.`;
+  /* ===================== DÚVIDAS DE USO ===================== */
+  if(tem(/como (lanco|lanco|registro|adiciono|cadastro|coloco)/)){
+    if(tem(/cartao|cartoes/)) return 'Em Finanças, no bloco de cartões, clique no + para criar ou no próprio cartão para editar. Fechamento e vencimento ficam ali como referência.';
+    if(tem(/conta fixa|conta mensal|aluguel|luz/)) return 'Finanças → Contas fixas do mês → + Nova. Informe o valor, o dia do vencimento e pronto: ela reaparece todo mês, e você dá baixa quando pagar.';
+    if(tem(/parcel|assinatura/)) return 'Finanças → Assinaturas e parcelamentos → + Nova. Informe o valor de CADA parcela, não o total da compra, e em quantas vezes. O saldo devedor eu calculo.';
+    if(tem(/meta|objetivo|sonho/)) return 'Finanças → Objetivos → + Novo objetivo. Com valor alvo e prazo, eu mostro quanto guardar por mês.';
+    if(tem(/tarefa|habito|rotina/)) return 'Rotina → Tarefas → + Nova. Escolha os dias da semana em que ela vale; nos outros dias ela nem aparece.';
+    return 'Finanças → Nova transação, no fim da página. Escolha o tipo, a categoria e a forma de pagamento. Em dinheiro ou Pix já entra como pago; no cartão fica em aberto até você quitar a fatura.';
+  }
+  if(tem(/marcar como pago|dar baixa|como pago|paguei uma conta/))
+    return 'Clique no círculo à esquerda da linha, em qualquer lista. Em cartão, o botão "Marcar fatura como paga" quita tudo daquele mês de uma vez.';
+  if(tem(/esconder valor|ocultar|privacidade|olho/))
+    return 'O botão de olho no topo esconde todos os valores de uma vez. Ele começa ligado e a preferência fica salva.';
 
-  /* ---------- contas fixas ---------- */
-  if(/vencid|atras|em atraso|esqueci de pagar|nao paguei|deixei de pagar/.test(Q)){
-    const v=vencidas();
-    if(!v.length) return `Nada vencido. Tudo que passou da data está pago. Em aberto a vencer neste mês: ${brl(aPagar(MES))}.`;
-    const tot=v.reduce((s2,x)=>s2+x.valor,0);
-    return `${v.length} conta${v.length>1?'s':''} vencida${v.length>1?'s':''}, somando ${brl(tot)}:\n`
-      +v.map(x=>`· ${x.nome} — ${brl(x.valor)}, venceu ${x.data.slice(8)}/${x.data.slice(5,7)} (${diasAtrasado(x.data)} dias)`).join('\n');
+  /* ===================== SITUAÇÃO GERAL ===================== */
+  if(tem(/resumo|como estou|panorama|visao geral|situacao|status|como esta minha vida|me atualiza/)){
+    const f=folgaDoMes(), v=vencidas();
+    return lista([
+      `${brl(f.caixa)} em caixa, ${brl(f.pagar)} ainda a pagar ${rotulo}.`,
+      f.sobra>=0?`Sobra ${brl(f.sobra)} — ${brl(f.porDia)} por dia até virar o mês.`
+                :`Faltam ${brl0(-f.sobra)} para cobrir os compromissos.`,
+      v.length?`${v.length} conta${v.length>1?'s':''} em atraso, somando ${brl(v.reduce((a,b)=>a+b.valor,0))}.`:'Nada em atraso.',
+      `Rotina: ${c.tarefas.filter(t=>t.feitoHoje).length} de ${c.tarefas.filter(t=>t.valeHoje).length} tarefas fechadas hoje.`]);
+  }
+  if(tem(/quanto (eu )?tenho|meu saldo|saldo atual|em caixa|dinheiro disponivel|patrimonio/)){
+    const f=folgaDoMes();
+    const inv=c.investimentos.atual;
+    return lista([
+      `Em caixa: ${brl(f.caixa)}.`,
+      `Comprometido ${rotulo}: ${brl(f.pagar)}. Livre de verdade: ${brl(f.sobra)}.`,
+      inv?`Investido: ${brl(inv)} — patrimônio total de ${brl(f.caixa+inv)}.`:'Nenhum investimento cadastrado.']);
+  }
+  if(tem(/por dia|quanto posso|quanto devo|ate o fim|fechar o mes|sobra por dia|gastar ainda|posso comprar/)){
+    const f=folgaDoMes();
+    if(f.sobra<0) return `Não sobra: ${brl(f.caixa)} em caixa contra ${brl(f.pagar)} que ainda vence — faltam ${brl0(-f.sobra)}.\n\nDá para virar adiando alguma conta ou antecipando entrada. Quer ver o que está em aberto?`;
+    return `Sobram ${brl(f.sobra)} depois de honrar tudo que vence — ${brl(f.porDia)} por dia nos ${f.dias} dias que faltam.`;
   }
 
-  if(/conta fixa|contas fixas|conta a pagar|contas a pagar|a vencer|boleto|pagar esse mes|falta pagar/.test(Q)){
-    if(!contas.length) return `Nenhuma conta fixa cadastrada para ${rotulo}.`;
+  /* ===================== PROJEÇÃO ===================== */
+  if(tem(/proximos meses|previsao|projec|vou ter|daqui a|futuro|como fico|quando quito|quando acaba/)){
+    const linhas=[];
+    let saldo=acumulado(mesMais(MES,-1))+soma('receita',MES)-somaPrev('despesa',MES);
+    linhas.push(`${nomeMes(MES)}: fecha em ${brl(saldo)} se pagar tudo.`);
+    for(let k=1;k<=5;k++){
+      const m=mesMais(MES,k);
+      const saida=somaPrev('despesa',m), entrada=somaPrev('receita',m);
+      saldo+=entrada-saida;
+      linhas.push(`${nomeMes(m)}: ${brl(saida)} de compromissos já conhecidos → ${brl(saldo)}.`);
+    }
+    linhas.push('','Só conta o que já está registrado: contas fixas, assinaturas e parcelas. Gastos novos não entram.');
+    return lista(linhas);
+  }
+
+  /* ===================== VENCIDAS ===================== */
+  if(tem(/vencid|atras|em atraso|esqueci de pagar|nao paguei|deixei de pagar|devendo/)){
+    const v=vencidas();
+    if(!v.length) return `Nada vencido. O que ainda vai vencer ${rotulo} soma ${brl(aPagar(MES))}.`;
+    return `${v.length} conta${v.length>1?'s':''} em atraso, somando ${brl(v.reduce((a,b)=>a+b.valor,0))}:\n`
+      +lista(v.map(x=>`· ${x.nome} — ${brl(x.valor)}, venceu ${x.data.slice(8)}/${x.data.slice(5,7)} há ${diasAtrasado(x.data)} dias`));
+  }
+
+  /* ===================== CONTAS FIXAS ===================== */
+  if(tem(/conta fixa|contas fixas|conta a pagar|contas a pagar|a vencer|boleto|falta pagar|o que pagar|vence quando/)){
+    if(!contas.length) return `Nenhuma conta fixa cadastrada ${rotulo}.`;
     const pagas=contas.filter(p=>estaPago(p.rec.id,M));
     const abertas=contas.filter(p=>!estaPago(p.rec.id,M));
-    const venc=abertas.filter(p=>M<MES||(M===MES&&diaVenc(p.rec)<hoje.getDate()));
-    let r=`Contas fixas ${rotulo}: ${brl(fixas)} no total, ${brl(somaP(pagas))} pago e ${brl(somaP(abertas))} em aberto.`;
-    if(venc.length) r+=`\n\nVencidas: ${venc.map(p=>`${p.rec.descricao} ${brl(p.valor)} (dia ${diaVenc(p.rec)})`).join('; ')}.`;
-    if(abertas.length&&!venc.length) r+=`\n\nA vencer: ${abertas.map(p=>`${p.rec.descricao} dia ${diaVenc(p.rec)}`).join(', ')}.`;
-    if(!abertas.length) r+=`\n\nMês quitado.`;
-    return r;
+    return lista([
+      `Contas fixas ${rotulo}: ${brl(fixas)} no total, ${brl(somaP(pagas))} pago e ${brl(somaP(abertas))} em aberto.`,
+      abertas.length?'':'Mês quitado.',
+      ...abertas.map(p=>`· ${p.rec.descricao} — ${brl(p.valor)}, dia ${diaVenc(p.rec)}`)]).trim();
   }
 
-  /* ---------- assinaturas e parcelas ---------- */
-  if(/assinatura|parcel|devedor|financiad|prestac/.test(Q)){
+  /* ===================== CARTÕES ===================== */
+  if(tem(/cartao|cartoes|fatura|limite|credito/)){
+    if(!S.cartoes.length) return 'Você ainda não cadastrou cartões. Finanças → bloco de cartões → +.';
+    const linhas=S.cartoes.map(x=>{
+      const ab=faturaAbertaDe(x.id), comp=comprometidoDe(x.id);
+      const livre=x.limite?Number(x.limite)-comp:null;
+      return `· ${x.nome}: fatura de ${brl(ab)}`
+        +(x.fechamento?`, fecha dia ${x.fechamento}`:'')
+        +(livre!=null?` · ${livre<0?brl0(-livre)+' acima do limite':brl0(livre)+' livres'}`:'');
+    });
     const dev=devedorDe();
-    if(!assinaturas.length&&!parcelas.length&&!dev) return 'Nenhuma assinatura ou parcelamento cadastrado.';
-    let r=`Assinaturas ${rotulo}: ${brl(somaP(assinaturas))}${assinaturas.length?' ('+assinaturas.map(p=>p.rec.descricao).join(', ')+')':''}.`;
-    r+=`\nParcelas do mês: ${brl(somaP(parcelas))}${parcelas.length?' — '+parcelas.map(p=>`${p.rec.descricao} ${p.selo}`).join(', '):''}.`;
-    r+=`\nSaldo devedor depois deste mês: ${brl(dev)}.`;
-    return r;
+    return lista([`Fatura em aberto somando ${brl(S.cartoes.reduce((a,x)=>a+faturaAbertaDe(x.id),0))}:`,...linhas,
+      dev?`\nParcelas futuras comprometem mais ${brl(dev)}.`:'']).trim();
   }
 
-  /* ---------- cartoes ---------- */
-  if(/cartao|cartoes|fatura|limite|nubank|c6|itau|santander/.test(Q)){
-    if(!S.cartoes.length) return 'Nenhum cartão cadastrado ainda.';
-    return S.cartoes.map(x=>{
-      const f=movimentos(M).filter(l=>l.tipo==='despesa'&&l.cartao_id===x.id).reduce((s,l)=>s+Number(l.valor),0);
-      const d=devedorDe(r=>r.cartao_id===x.id);
-      return `${x.nome}: fatura de ${brl(f)}${d?`, mais ${brl(d)} em parcelas futuras`:''}${x.limite?`, ${brl(x.limite-f)} de limite livre`:''}.`;
-    }).join('\n');
+  /* ===================== PARCELAS E ASSINATURAS ===================== */
+  if(tem(/parcel|devedor|devo|divida|financiad/)){
+    if(!parcelas.length&&!devedorDe()) return 'Nenhum parcelamento ativo. Nada comprometido para frente.';
+    return lista([
+      `Parcelas ${rotulo}: ${brl(somaP(parcelas))}.`,
+      `Ainda falta pagar ${brl(devedorDe())} em parcelas futuras.`,
+      '',
+      ...parcelas.map(p=>`· ${p.rec.descricao} — ${p.selo}, ${brl(p.valor)}`)]).trim();
+  }
+  if(tem(/assinatura|mensalidade|streaming|recorrente/)){
+    if(!assinaturas.length) return 'Nenhuma assinatura cadastrada.';
+    return lista([`Assinaturas ${rotulo}: ${brl(somaP(assinaturas))} por mês, ou ${brl(somaP(assinaturas)*12)} no ano.`,'',
+      ...assinaturas.map(p=>`· ${p.rec.descricao} — ${brl(p.valor)}`)]);
   }
 
-  /* ---------- investimentos ---------- */
-  if(/investiment|carteira|rendiment|rentabil|aplicad|tesouro|cdb|acoes|cripto/.test(Q)){
-    if(!S.investimentos.length) return 'Nenhum investimento cadastrado.';
-    const ap=S.investimentos.reduce((s,i)=>s+Number(i.aplicado),0);
-    const at=S.investimentos.reduce((s,i)=>s+Number(i.atual),0);
-    const porC={}; S.investimentos.forEach(i=>porC[i.categoria]=(porC[i.categoria]||0)+Number(i.atual));
-    return `Carteira em ${brl(at)}, aplicado ${brl(ap)} — rendimento de ${brl(at-ap)} (${((at-ap)/ap*100).toFixed(2)}%).\n\n`
-      +Object.entries(porC).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}: ${brl(v)} (${Math.round(v/at*100)}%)`).join('\n');
+  /* ===================== INVESTIMENTOS ===================== */
+  if(tem(/investiment|rendiment|carteira|aplicad|rendeu|tesouro|cdb|cripto|acao|acoes/)){
+    const i=c.investimentos;
+    if(!i.itens.length) return 'Nenhum investimento cadastrado. Finanças → Investimentos → + Novo.';
+    const pct=i.aplicado?(i.rendimento/i.aplicado*100).toFixed(2):'0';
+    return lista([`Aplicado ${brl(i.aplicado)}, hoje vale ${brl(i.atual)} — ${i.rendimento>=0?'ganho':'perda'} de ${brl0(Math.abs(i.rendimento))} (${pct}%).`,'',
+      ...i.itens.map(x=>`· ${x.nome} (${x.categoria}): ${brl(x.atual)}`)]);
   }
 
-  /* ---------- saldo ---------- */
-  if(/saldo|quanto tenho|quanto sobrou|quanto sobra|reserva|patrimonio/.test(Q)){
-    const ant=acumulado(mesMais(M,-1)), fim=ant+ent-sai;
-    const at=S.investimentos.reduce((s,i)=>s+Number(i.atual),0);
-    return `Em ${rotulo}: veio ${brl(ant)} do mês anterior, entraram ${brl(ent)}, saíram ${brl(sai)} — fecha em ${brl(fim)}.`
-      +(at?`\n\nSomando a carteira de investimentos (${brl(at)}), o patrimônio fica em ${brl(fim+at)}.`:'');
-  }
-
-  /* ---------- categoria citada ---------- */
-  const semAc=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  const cit=S.categorias.find(x=>Q.includes(semAc(x.nome).split('/')[0]));
-  if(cit&&/gast|quanto|categoria/.test(Q)){
+  /* ===================== GASTOS ===================== */
+  const cit=S.categorias.find(x=>{
+    const n=x.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').split('/')[0].split(' ')[0];
+    return n.length>3&&Q.includes(n);
+  });
+  if(cit&&tem(/gast|quanto|categoria|orcament/)){
     const uso=cats.find(x=>x[0]===cit.nome)?.[1]||0;
     const itens=movimentos(M).filter(l=>l.categoria_id===cit.id&&l.tipo==='despesa')
-      .sort((a,b)=>b.valor-a.valor).slice(0,4).map(l=>`${l.descricao} ${brl(l.valor)}`).join(', ');
-    return `Em ${cit.nome}, ${rotulo}: ${brl(uso)}${sai?` — ${Math.round(uso/sai*100)}% de tudo que saiu`:''}.`
-      +(itens?`\n\nMaiores: ${itens}.`:'');
+      .sort((a,b)=>b.valor-a.valor).slice(0,4).map(l=>`· ${l.descricao} — ${brl(l.valor)}`);
+    if(!uso) return `Nada registrado em ${cit.nome} ${rotulo}.`;
+    return lista([`${cit.nome} ${rotulo}: ${brl(uso)}${sai?` — ${Math.round(uso/sai*100)}% das saídas`:''}.`,'',...itens]);
   }
-
-  /* ---------- gastos do mes ---------- */
-  if(/gast|saiu|saida|despesa|quanto ja tenho|quanto tenho em gasto|total do mes/.test(Q)){
-    if(!sai) return `Nada registrado como saída em ${rotulo}.`;
-    let r=`Saídas de ${rotulo}: ${brl(sai)}.\n\nQuebra: ${brl(fixas)} em contas fixas, ${brl(somaP(assinaturas))} em assinaturas, ${brl(somaP(parcelas))} em parcelas e ${brl(Math.max(0,variaveis))} em gastos variáveis.`;
-    if(cats.length) r+=`\n\nPor categoria: ${cats.slice(0,4).map(([k,v])=>`${k} ${brl(v)}`).join(', ')}.`;
-    if(S.perfil.orcamento_mensal) r+=`\n\nContra o teto de ${brl(S.perfil.orcamento_mensal)}: ${Math.round(sai/S.perfil.orcamento_mensal*100)}% usado.`;
-    return r;
+  if(tem(/onde|vazando|maior gasto|maiores gastos|gastando|gastei|no que|com o que/)){
+    if(!cats.length) return `Nada registrado como saída ${rotulo}.`;
+    const top=cats.slice(0,5).map(([k,v])=>`· ${k} — ${brl(v)} (${Math.round(v/sai*100)}%)`);
+    const maiores=movimentos(M).filter(l=>l.tipo==='despesa').sort((a,b)=>b.valor-a.valor).slice(0,3)
+      .map(l=>`· ${l.descricao} — ${brl(l.valor)}`);
+    return lista([`Saíram ${brl(sai)} ${rotulo}. Por categoria:`,...top,'','Maiores lançamentos:',...maiores]);
   }
-
-  /* ---------- entradas ---------- */
-  if(/entrada|receita|recebi|ganhei|salario|renda/.test(Q)){
-    const its=movimentos(M).filter(l=>l.tipo==='receita');
-    if(!its.length) return `Nenhuma entrada registrada em ${rotulo}.`;
-    return `Entradas de ${rotulo}: ${brl(ent)}.\n\n`+its.sort((a,b)=>b.valor-a.valor)
-      .map(l=>`${l.descricao}: ${brl(l.valor)}`).join('\n');
+  if(tem(/entrou|entrada|recebi|receita|salario|ganhei|quanto ganho/)){
+    const recs=movimentos(M).filter(l=>l.tipo==='receita');
+    if(!recs.length) return `Nenhuma entrada registrada ${rotulo}.`;
+    return lista([`Entraram ${brl(ent)} ${rotulo}:`,...recs.map(l=>`· ${l.descricao} — ${brl(l.valor)}`)]);
   }
-
-  /* ---------- vazamento ---------- */
-  if(/vaz|onde.*dinheiro|maior gasto|cortar|economizar/.test(Q)){
-    if(!cats.length) return `Nenhuma saída em ${rotulo} para analisar.`;
-    let r=`Três maiores saídas de ${rotulo}: ${cats.slice(0,3).map(([k,v])=>`${k} ${brl(v)}`).join(', ')} — ${Math.round(cats.slice(0,3).reduce((s2,x)=>s2+x[1],0)/sai*100)}% do total.`;
-    r+=`\n\nDo que saiu, ${brl(fixas+somaP(parcelas))} é compromisso já assumido (contas fixas e parcelas) e ${brl(Math.max(0,variaveis+somaP(assinaturas)))} é o que dá pra mexer no curto prazo.`;
-    if(S.perfil.orcamento_mensal&&sai>S.perfil.orcamento_mensal)
-      r+=`\n\nVocê passou ${brl(sai-S.perfil.orcamento_mensal)} do teto mensal.`;
-    return r;
-  }
-
-  /* ---------- quanto posso gastar ---------- */
-  if(/por dia|quanto posso|quanto devo|ate o fim|fechar o mes|sobra por dia|gastar ainda/.test(Q)){
-    const f=folgaDoMes();
-    if(f.sobra<0)
-      return `Não sobra: são ${brl(f.caixa)} em caixa contra ${brl(f.pagar)} que ainda vence — faltam ${brl0(-f.sobra)}.\n\nDá para virar adiando alguma conta ou antecipando entrada. Quer ver o que está em aberto?`;
-    return `Sobram ${brl(f.sobra)} depois de honrar tudo que ainda vence — ${brl(f.porDia)} por dia nos ${f.dias} dias que faltam.\n\nSão ${brl(f.caixa)} em caixa contra ${brl(f.pagar)} de compromissos.`;
-  }
-
-  /* ---------- metas ---------- */
-  if(/meta|sonho|objetivo|guard|aporte|juntar/.test(Q)){
-    if(!c.metas.length) return 'Nenhuma meta cadastrada ainda.';
-    return c.metas.map(m=>{
-      const dias=m.prazo?Math.ceil((new Date(m.prazo+'T12:00')-hoje)/864e5):null;
-      if(m.tipo!=='valor') return `${m.nome}: ${m.pct}% de progresso${dias?`, ${dias} dias de prazo`:''}.`;
-      const falta=m.alvo-m.atual, meses=Math.max(1,Math.ceil((dias||30)/30));
-      return `${m.nome}: ${brl(m.atual)} de ${brl(m.alvo)} (${m.pct}%). Faltam ${brl(falta)} em ${meses} meses — ${brl(falta/meses)} por mês.`;
-    }).join('\n\n');
-  }
-
-  /* ---------- tarefas ---------- */
-  if(/tarefa|habito|sequencia|streak|consist|rotina|treino|quebr|disciplin/.test(Q)){
-    if(!c.tarefas.length) return 'Você ainda não cadastrou tarefas diárias.';
-    const ord=[...c.tarefas].sort((a,b)=>a.ultimos30dias-b.ultimos30dias);
-    const pior=ord[0], melhor=ord[ord.length-1];
-    const pend=c.tarefas.filter(t=>!t.feitoHoje).map(t=>t.nome);
-    return `Ponto fraco: "${pior.nome}", ${pior.ultimos30dias} de 30 dias, sequência de ${pior.sequenciaAtual}.\nMais sólido: "${melhor.nome}" com ${melhor.ultimos30dias}/30.\nMédia geral: ${Math.round(c.tarefas.reduce((s2,t)=>s2+t.ultimos30dias,0)/c.tarefas.length)}/30.\n\n${pend.length?'Aberto hoje: '+pend.join(', ')+'.':'Tudo fechado hoje.'}`;
-  }
-
-  /* ---------- agenda ---------- */
-  if(/agenda|compromisso|proxim|calendario|semana|amanha|hoje tenho/.test(Q)){
-    if(!c.agenda.length) return 'Nada agendado a partir de hoje.';
-    return 'Próximos compromissos:\n'+c.agenda.map(e=>`${e.data.slice(8)}/${e.data.slice(5,7)} — ${e.titulo} (${e.tipo})`).join('\n');
-  }
-
-  /* ---------- comparacao ---------- */
-  if(/compar|evolu|tendencia|antes|piorou|melhorou/.test(Q)){
+  if(tem(/compar|evolu|tendencia|mes passado|antes|piorou|melhorou|gasto medio|media/)){
     const ant=mesMais(M,-1), sa=soma('despesa',ant), ea=soma('receita',ant);
     if(!sa&&!ea) return `Não tenho ${nomeMes(ant)} registrado para comparar.`;
     const dif=sai-sa;
-    return `${nomeMes(M)} contra ${nomeMes(ant)}:\nSaídas ${brl(sai)} contra ${brl(sa)} — ${dif>=0?'aumento':'queda'} de ${brl(Math.abs(dif))} (${Math.round(Math.abs(dif)/(sa||1)*100)}%).\nEntradas ${brl(ent)} contra ${brl(ea)}.`;
+    const media=[...Array(5)].map((_,k)=>soma('despesa',mesMais(M,-5+k))).filter(x=>x);
+    return lista([
+      `Saídas: ${brl(sai)} ${rotulo} contra ${brl(sa)} em ${nomeMes(ant)} — ${dif>=0?'alta':'queda'} de ${brl0(Math.abs(dif))}.`,
+      `Entradas: ${brl(ent)} contra ${brl(ea)}.`,
+      media.length?`Média dos meses anteriores: ${brl(media.reduce((a,b)=>a+b,0)/media.length)}.`:'']).trim();
+  }
+  if(tem(/economi|guardei|poupei|taxa de|sobrou/)){
+    const pct=ent?Math.round((ent-sai)/ent*100):0;
+    return `${rotulo.charAt(0).toUpperCase()+rotulo.slice(1)} entraram ${brl(ent)} e saíram ${brl(sai)}: guardou ${brl(ent-sai)}, ${pct}% da renda.`
+      +(pct<20?'\n\nA referência comum é 20%. Para chegar lá, o teto de saídas seria '+brl(ent*0.8)+'.':'');
+  }
+  if(tem(/orcamento|teto|limite de gasto/)){
+    const teto=S.perfil.orcamento_mensal;
+    if(!teto) return 'Você não definiu um teto mensal. Finanças → Orçamento mensal → Editar.';
+    const p=sai/teto;
+    return `Teto de ${brl(teto)}, já usou ${brl(sai)} — ${Math.round(p*100)}%. ${p>1?`Estourou em ${brl0(sai-teto)}.`:`Restam ${brl(teto-sai)}.`}`;
   }
 
-  /* ---------- resumo ---------- */
-  if(/resumo|como estou|panorama|visao geral|status|situacao/.test(Q)){
-    const pend=c.tarefas.filter(t=>!t.feitoHoje).map(t=>t.nome);
-    const abertas=contas.filter(p=>!estaPago(p.rec.id,M));
-    return `Dinheiro: entraram ${brl(ent)}, saíram ${brl(sai)}, saldo de ${brl(ent-sai)} — economia de ${ent?Math.round((ent-sai)/ent*100):0}%.`
-      +(abertas.length?`\nContas: ${brl(somaP(abertas))} ainda em aberto.`:'\nContas: mês quitado.')
-      +`\nRotina: ${c.tarefas.filter(t=>t.feitoHoje).length}/${c.tarefas.length} hoje${pend.length?', falta '+pend.join(', '):''}.`
-      +`\nAgenda: ${c.agenda[0]?c.agenda[0].titulo+' em '+c.agenda[0].data.slice(8)+'/'+c.agenda[0].data.slice(5,7):'nada marcado'}.`;
+  /* ===================== ROTINA E METAS ===================== */
+  if(tem(/tarefa|habito|sequencia|streak|rotina|treino|quebr|constancia|disciplina/)){
+    const ts=c.tarefas;
+    if(!ts.length) return 'Nenhuma tarefa cadastrada. Rotina → Tarefas → + Nova.';
+    const hoje_=ts.filter(t=>t.valeHoje);
+    const pend=hoje_.filter(t=>!t.feitoHoje).map(t=>t.nome);
+    const ord=[...ts].sort((a,b)=>(a.feitosEm30/a.previstosEm30)-(b.feitosEm30/b.previstosEm30));
+    return lista([
+      `Hoje: ${hoje_.filter(t=>t.feitoHoje).length} de ${hoje_.length} fechadas.`,
+      pend.length?`Falta: ${pend.join(', ')}.`:'Tudo fechado.',
+      '',
+      `Mais firme: ${ord[ord.length-1].nome} (${ord[ord.length-1].feitosEm30}/${ord[ord.length-1].previstosEm30}).`,
+      `Mais falha: ${ord[0].nome} (${ord[0].feitosEm30}/${ord[0].previstosEm30}).`]);
+  }
+  if(tem(/meta|objetivo|sonho|guard|aporte|juntar|comprar um|viagem/)){
+    if(!c.metas.length) return 'Nenhum objetivo cadastrado. Finanças → Objetivos → + Novo.';
+    return lista(c.metas.map(m=>{
+      const dias=m.prazo?Math.ceil((new Date(m.prazo+'T12:00')-hoje)/864e5):null;
+      if(!m.alvo) return `${m.nome}: ${m.pct}% de progresso.`;
+      const falta=m.alvo-m.atual, meses=Math.max(1,Math.ceil((dias||30)/30));
+      return `${m.nome}: ${brl(m.atual)} de ${brl(m.alvo)} (${m.pct}%). Faltam ${brl(falta)} em ${meses} meses — ${brl(falta/meses)} por mês.`;
+    }));
+  }
+  if(tem(/agenda|compromisso|proxim|calendario|semana|amanha|hoje tenho|marcado/)){
+    if(!c.agenda.length) return 'Nada agendado daqui pra frente.';
+    return lista(['Próximos compromissos:',...c.agenda.map(e=>`· ${e.data.slice(8)}/${e.data.slice(5,7)} — ${e.titulo} (${e.tipo})`)]);
   }
 
-  return `Não entendi. Posso registrar coisas para você:
+  /* ===================== NOÇÕES BÁSICAS ===================== */
+  if(tem(/reserva de emergencia|reserva emergencia/)){
+    const f=folgaDoMes();
+    const gasto=[...Array(3)].map((_,k)=>somaPrev('despesa',mesMais(MES,-k))).filter(x=>x);
+    const med=gasto.length?gasto.reduce((a,b)=>a+b,0)/gasto.length:0;
+    return `Reserva de emergência é o dinheiro parado em algo de resgate imediato, para imprevisto — não para meta.\n\n`
+      +(med?`Seu gasto médio é ${brl(med)} por mês. De 3 a 6 meses disso dá entre ${brl0(med*3)} e ${brl0(med*6)}.`:'A referência comum é de 3 a 6 meses do seu custo de vida.')
+      +`\n\nHoje você tem ${brl(f.caixa)} em caixa.`;
+  }
+  if(tem(/rotativo|juros do cartao|juros cartao|pagar minimo|parcelar fatura/))
+    return 'O rotativo do cartão é o crédito mais caro do mercado brasileiro, com juros que costumam passar de 400% ao ano. Pagar o mínimo joga o resto para o rotativo.\n\nSe não der para quitar a fatura, o caminho menos ruim quase sempre é trocar por uma dívida mais barata: parcelamento da própria fatura, crédito consignado ou empréstimo com garantia. Vale comparar o custo total antes.';
+  if(tem(/vale a pena parcelar|parcelar ou a vista|desconto a vista/))
+    return 'A conta é simples: se o desconto à vista for maior que o rendimento do dinheiro no período, à vista ganha.\n\nParcelado sem juros só compensa se você realmente investir a diferença — e se a parcela não comprometer seu limite quando precisar dele. Hoje suas parcelas futuras somam '+brl(devedorDe())+'.';
+  if(tem(/como economizar|dicas|reduzir gasto|cortar gasto|poupar mais/)){
+    if(!cats.length) return 'Registre alguns gastos primeiro e eu aponto onde está o vazamento.';
+    const top=cats.slice(0,2);
+    return lista([`Olhando seus números, o corte com mais efeito está aqui:`,
+      ...top.map(([k,v])=>`· ${k}: ${brl(v)} ${rotulo} — 20% a menos já libera ${brl(v*0.2)} por mês`),
+      '',
+      assinaturas.length?`Suas assinaturas somam ${brl(somaP(assinaturas))} por mês, ${brl(somaP(assinaturas)*12)} no ano. É o corte mais indolor.`:'',
+      'Contas fixas quase nunca são o problema: elas são obrigação. O ajuste vive no gasto variável.']).trim();
+  }
+  if(tem(/inflacao|selic|cdi|renda fixa|onde investir|melhor investimento/))
+    return 'Não recomendo investimento específico — não é meu papel e depende do seu prazo e tolerância a risco.\n\nO que posso dizer: antes de investir, o padrão é ter reserva de emergência formada e nenhuma dívida cara em aberto. Suas parcelas futuras hoje somam '+brl(devedorDe())+'.';
 
-· lance 50 na padaria
-· recebi 450 de freela
-· agende longão 14 km dia 12
-· marca treinar como feito
-
-Ou responder sobre os seus números:
-
-· quanto gastei em setembro
-· o que tenho de conta fixa a pagar
-· qual meu saldo devedor de parcelas
-· como está a fatura dos cartões
-· quanto rendeu minha carteira
-· onde meu dinheiro está vazando
-· qual tarefa eu mais quebro
-· como estão minhas metas`;
+  /* ===================== NÃO ENTENDI ===================== */
+  return lista([
+    'Não entendi essa. Ainda estou no modo offline, respondendo por regras — então preciso de perguntas mais diretas.',
+    '',
+    'Tente algo como:',
+    '· quanto posso gastar · o que está vencido · onde meu dinheiro foi',
+    '· como estão meus cartões · quanto devo em parcelas · meus investimentos',
+    '· o que vem nos próximos meses · como estão minhas metas',
+    '',
+    'Ou me mande registrar: "gastei 50 na padaria".']);
 }
 
 /* ---------------------------------------------------------------------
@@ -3126,7 +3203,7 @@ async function executaComando(cmd){
   }
 }
 
-const SUG=['Me dá um resumo','Tenho algo vencido?','Onde meu dinheiro está indo?','Lance 50 na padaria','Como estão meus cartões?','Quanto rendeu meus investimentos?'];
+const SUG=['Me dá um resumo','O que vem nos próximos meses?','Tenho algo vencido?','Onde meu dinheiro foi?','Como estão meus cartões?','Como economizar?','O que você faz?'];
 SUG.forEach(s=>{const b=el('button',null,s);b.onclick=()=>{$('#ask').value=s;enviar();};$('#hints').appendChild(b);});
 
 function bolha(txt,quem,tag){
@@ -3210,15 +3287,13 @@ async function enviar(){
   try{
     const {texto,via}=await chamarModelo(q);
     m._p.textContent=texto; m._tag.textContent=via;
-    $('#atStatus').textContent='assessor online';
+    $('#atStatus').textContent='conversa completa';
     await db.salvarMensagem('assistant',texto,via);
   }catch(e){
     const t=atlasLocal(q);
-    m._p.textContent=t; m._tag.textContent='sem conexão';
-    $('#atStatus').textContent='respondendo offline';
-    m.appendChild(el('div','diag','assessor indisponível → '+(e.message||e)));
+    m._p.textContent=t; m._tag.textContent='';
     await db.salvarMensagem('assistant',t,'motor local');
-    console.warn('[Assessor]',e);
+    console.warn('[Assessor] modelo indisponível, respondendo local:',e.message||e);
   }
   m._p.classList.remove('blink'); ocupado=false; $('#msgs').scrollTop=1e9;
 }
@@ -3374,7 +3449,7 @@ Deno.serve(async (req) => {
    10. BOOT
    ===================================================================== */
 function renderTudo(){
-  $('#atStatus').textContent=S.endpoint?'assessor conectado':'sem endpoint — modo offline';
+  $('#atStatus').textContent=S.endpoint?'conversa completa':'respostas diretas';
   renderConversa(); renderPerfil(); renderDashboard(); renderCompromissos(); renderTarefas(); renderMetas(); renderFin(); renderAgenda(); }
 $('#btnOlho').onclick=alternarVisibilidade; pintaOlho();
 if(S.endpoint) $('#cfgEndpoint').value=S.endpoint;
