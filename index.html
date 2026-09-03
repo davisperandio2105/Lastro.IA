@@ -676,8 +676,8 @@ pre{background:#FAF8F3;border:1px solid var(--line);border-radius:9px;padding:14
             <button class="btn ghost sm" id="rodarDiag">Rodar testes</button></header>
             <div class="bd"><div class="rows" id="diagLista">
               <p class="vazio">Clique em Rodar testes para ver o que está funcionando.</p></div></div></div>
-          <div class="card"><header><span class="cap">Atlas — endpoint do modelo</span></header><div class="bd">
-            <p class="note">O app tenta a API direta primeiro. Se você publicar a Edge Function, cole a URL aqui e ela passa a ser usada — é assim que a chave fica fora do navegador.</p>
+          <div class="card"><header><span class="cap">Assessor — conexão com a IA</span></header><div class="bd">
+            <p class="note">Sem endpoint, o assessor responde por regras em cima dos seus números — útil, mas não conversa. Com a Edge Function publicada, ele passa a conversar de verdade. Cole a URL aqui.</p>
             <div class="form" style="margin-top:12px">
               <div class="field full"><label for="cfgEndpoint">URL da Edge Function</label><input id="cfgEndpoint" placeholder="https://xxxx.supabase.co/functions/v1/atlas"></div>
               <div class="full"><button class="btn ghost blk" id="salvarEndpoint">Usar este endpoint</button></div>
@@ -3440,7 +3440,7 @@ $('#salvarEndpoint').onclick=()=>{
   const v=$('#cfgEndpoint').value.trim();
   S.endpoint=v;
   try{ v?localStorage.setItem('lastro_endpoint',v):localStorage.removeItem('lastro_endpoint'); }catch(e){}
-  msg('#epMsg',v?'Atlas passa a usar <code>'+v+'</code>.':'Endpoint limpo. Atlas volta a tentar a API direta.','ok');
+  msg('#epMsg',v?'Assessor passa a usar <code>'+v+'</code>.':'Endpoint removido. O assessor volta a responder por regras.','ok');
   $('#atStatus').textContent=v?'edge function':'motor local';
 };
 
