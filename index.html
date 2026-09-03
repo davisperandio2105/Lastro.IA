@@ -343,6 +343,13 @@ pre{background:#FAF8F3;border:1px solid var(--line);border-radius:9px;padding:14
       </div>
     </div>
 
+    <!-- restaurando sessao -->
+    <div class="gatecard hide" id="stepRestaurando" style="text-align:center;padding:34px 22px">
+      <div class="spin" style="border-top-color:var(--g);border-color:var(--line);width:22px;height:22px;margin:0 auto 14px"></div>
+      <h2>Entrando na sua conta</h2>
+      <p class="s" style="margin:4px 0 0">Sua sessão já estava salva neste navegador.</p>
+    </div>
+
     <!-- passo 2: login -->
     <div class="gatecard hide" id="stepAuth">
       <div class="tabs">
@@ -410,7 +417,7 @@ pre{background:#FAF8F3;border:1px solid var(--line);border-radius:9px;padding:14
           </div>
           <h2 id="heroHi" class="hide">Bem-vindo</h2>
           <p id="heroDate" class="hide"></p>
-          <div class="cap">Depois de pagar tudo que ainda vence neste mês</div>
+          <div class="cap" id="hTitulo">—</div>
           <div class="folga" id="hFolga">—</div>
           <div class="folgaLb" id="hFolgaLb">—</div>
           <div class="folgaBar"><i id="hFolgaBar"></i></div>
@@ -1319,13 +1326,26 @@ const db={
 /* carga inicial do Supabase */
 async function carregarDoSupabase(){
   const sb=S.sb, uid=S.user.id;
+  S.pendencias=[];
+  /* le uma tabela sem deixar que a ausencia dela quebre o carregamento */
+  const ler=async(tabela,q)=>{
+    const {data,error}=await q;
+    if(error){ S.pendencias.push(tabela+': '+error.message); return null; }
+    return data;
+  };
   const desde=iso(new Date(hoje.getFullYear(),hoje.getMonth()-5,1));
 
-  let {data:perfil}=await sb.from('perfis').select('nome,xp,reserva_inicial,orcamento_mensal,avatar').eq('id',uid).maybeSingle();
+  /* select('*') em vez de listar colunas: se uma migração não tiver sido
+     rodada, a coluna ausente não derruba a leitura inteira — e o nome
+     do usuário deixa de ser sobrescrito a cada carga. */
+  let {data:perfil,error:ePerfil}=await sb.from('perfis').select('*').eq('id',uid).maybeSingle();
+  if(ePerfil) throw new Error('Não consegui ler a tabela perfis: '+ePerfil.message
+    +'\n\nRode as migrações que faltam no SQL Editor.');
   if(!perfil){
-    await sb.from('perfis').upsert({id:uid,nome:nomeDoEmail(S.user.email)},{onConflict:'id'});
-    ({data:perfil}=await sb.from('perfis').select('nome,xp,reserva_inicial,orcamento_mensal,avatar').eq('id',uid).maybeSingle());
-    perfil=perfil||{nome:nomeDoEmail(S.user.email),xp:0,reserva_inicial:0,orcamento_mensal:null};
+    /* insert puro: só cria se realmente não existir. Nunca sobrescreve. */
+    await sb.from('perfis').insert({id:uid,nome:nomeDoEmail(S.user.email)});
+    ({data:perfil}=await sb.from('perfis').select('*').eq('id',uid).maybeSingle());
+    perfil=perfil||{nome:nomeDoEmail(S.user.email)};
   }
   S.perfil={nome:perfil.nome,xp:perfil.xp,avatar:perfil.avatar||null,
     reserva_inicial:Number(perfil.reserva_inicial||0),
@@ -1356,15 +1376,10 @@ async function carregarDoSupabase(){
   S.metas=metas||[];
   const {data:evs}=await sb.from('eventos').select('*').gte('data',desde);
   S.eventos=evs||[];
-  const {data:cds}=await sb.from('cartoes').select('*').order('ordem');
-  S.cartoes=cds||[];
-  const {data:invs}=await sb.from('investimentos').select('*');
-  S.investimentos=invs||[];
-  const {data:msgs}=await sb.from('mensagens').select('*')
-    .order('criado_em',{ascending:true}).limit(200);
-  S.mensagens=msgs||[];
-  const {data:recs}=await sb.from('recorrencias').select('*').eq('ativo',true);
-  S.recorrencias=recs||[];
+  S.cartoes=await ler('cartoes',sb.from('cartoes').select('*').order('ordem'))||[];
+  S.investimentos=await ler('investimentos',sb.from('investimentos').select('*'))||[];
+  S.mensagens=await ler('mensagens',sb.from('mensagens').select('*').order('criado_em',{ascending:true}).limit(200))||[];
+  S.recorrencias=await ler('recorrencias',sb.from('recorrencias').select('*').eq('ativo',true))||[];
   const idsRec=S.recorrencias.map(r=>r.id);
   const {data:pgs}=await sb.from('recorrencia_pagamentos').select('*')
     .in('recorrencia_id',idsRec.length?idsRec:[0]);
@@ -1406,10 +1421,18 @@ async function conectar(url,key,silencioso){
   S.url=url;
   if(storageOk()){ try{ localStorage.setItem('trilha_cfg',JSON.stringify({url,key})); }catch(e){} }
 
-  $('#stepConfig').classList.add('hide'); $('#stepAuth').classList.remove('hide');
-  if(!silencioso) msg('#authMsg','Projeto conectado. Crie a conta na primeira vez.','ok');
+  $('#stepConfig').classList.add('hide');
   const {data:{session}}=await S.sb.auth.getSession();
-  if(session){ S.user=session.user; await entrarLive(); }
+  if(session){
+    /* sessao viva: pula o login e mostra o estado de restauracao */
+    $('#stepRestaurando').classList.remove('hide');
+    S.user=session.user;
+    try{ await entrarLive(); return; }
+    catch(e){ $('#stepRestaurando').classList.add('hide'); }
+  }
+  $('#stepRestaurando').classList.add('hide');
+  $('#stepAuth').classList.remove('hide');
+  if(!silencioso) msg('#authMsg','Projeto conectado. Crie a conta na primeira vez.','ok');
 }
 
 $('#btnConectar').onclick=async()=>{
@@ -1451,10 +1474,21 @@ function traduzErro(m){
 async function entrarLive(){
   msg('#authMsg','<span class="spin"></span> carregando seus dados','info');
   try{ await carregarDoSupabase(); abrirApp('conectado',true); }
-  catch(e){ msg('#authMsg',traduzErro(e.message),'err'); }
+  catch(e){
+    $('#stepRestaurando').classList.add('hide');
+    $('#stepAuth').classList.remove('hide');
+    msg('#authMsg',traduzErro(e.message),'err');
+    throw e;
+  }
 }
 
 function abrirApp(label,live){
+  if(live&&S.pendencias&&S.pendencias.length){
+    setTimeout(()=>aviso('Faltam migrações no banco',
+      'Estas tabelas ou colunas não existem ainda, então parte do app fica limitada:\n\n'
+      +S.pendencias.join('\n')
+      +'\n\nRode no SQL Editor os arquivos trilha_schema_v2 até v10, na ordem.'),600);
+  }
   S.modo=live?'live':'demo';
   $('#gate').classList.add('hide'); $('#app').classList.remove('hide');
   const b=$('#connBadge'); b.textContent=label; b.classList.toggle('live',live);
@@ -1623,11 +1657,16 @@ function folgaDoMes(){
 
 function renderDashboard(){
   const f=folgaDoMes();
+  const ate=new Date(hoje.getFullYear(),hoje.getMonth()+1,0);
+  $('#hTitulo').textContent = f.sobra>=0
+    ? 'Livre para gastar, já descontado tudo que ainda vence'
+    : 'Seus compromissos passam o que você tem em caixa';
   $('#hFolga').textContent=brl(f.porDia);
+  if(f.sobra<0) $('#hFolga').textContent=brl(f.sobra);
   $('#hFolga').style.color=f.sobra>=0?'var(--g)':'var(--red)';
   $('#hFolgaLb').textContent=f.sobra>=0
-    ? `por dia nos ${f.dias} dias que faltam para virar o mês`
-    : `faltam ${brl0(-f.sobra)} para cobrir os compromissos deste mês`;
+    ? `por dia até ${String(ate.getDate()).padStart(2,'0')}/${String(ate.getMonth()+1).padStart(2,'0')} · ${brl(f.sobra)} no total`
+    : `faltam ${brl0(-f.sobra)}. Vale ver o que dá para adiar.`;
   $('#hCaixa').textContent=brl0(f.caixa);
   $('#hPagar').textContent=brl0(f.pagar);
   $('#hSobra').textContent=brl0(f.sobra);
@@ -3465,7 +3504,11 @@ setAuthTab('entrar');
   if(cfg&&cfg.url&&cfg.key){
     $('#cUrl').value=cfg.url; $('#cKey').value=cfg.key;
     try{ await conectar(cfg.url,cfg.key,true); }
-    catch(e){ msg('#cfgMsg','Não deu para reconectar sozinho: '+e.message,'err'); }
+    catch(e){
+      $('#stepRestaurando').classList.add('hide');
+      $('#stepConfig').classList.remove('hide');
+      msg('#cfgMsg','Não deu para reconectar sozinho: '+e.message,'err');
+    }
     return;
   }
   if(!storageOk()) msg('#cfgMsg','Este navegador não está guardando dados nesta página (comum ao abrir por <code>file://</code>). Preencha o bloco CONFIG no topo do arquivo, ou sirva o app por http, para não digitar as credenciais toda vez.','info');
