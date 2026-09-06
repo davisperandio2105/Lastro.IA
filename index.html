@@ -2817,6 +2817,20 @@ function contexto(){
         .sort((a,b)=>b.valor-a.valor).slice(0,8)
         .map(l=>({desc:l.descricao,cat:catNome(l.categoria_id),valor:+l.valor,data:l.data,
                   recorrente:!!l.virtual}))},
+    /* lista completa do mês: sem ela o assessor não acha um lançamento
+       específico, só enxerga totais e os maiores gastos. */
+    lancamentosDoMes:movimentos(M).map(l=>({
+      data:l.data,desc:l.descricao,tipo:l.tipo,valor:+l.valor,
+      categoria:catNome(l.categoria_id),
+      pagamento:S.cartoes.find(c=>c.id===l.cartao_id)?.nome||'dinheiro/pix/débito',
+      pago:foiPago(l,M),
+      origem:l.virtual?(l.selo||'recorrente'):'avulso'
+    })).sort((a,b)=>b.data.localeCompare(a.data)),
+    /* últimos 60 de meses anteriores, para busca por nome */
+    lancamentosAnteriores:S.lancamentos
+      .filter(l=>compCaixa(l)!==M).sort((a,b)=>b.data.localeCompare(a.data)).slice(0,60)
+      .map(l=>({data:l.data,desc:l.descricao,tipo:l.tipo,valor:+l.valor,
+        categoria:catNome(l.categoria_id),mesDaFatura:compCaixa(l),pago:l.pago!==false})),
     contasFixas:projC.map(p=>({nome:p.rec.descricao,valor:+p.valor,dia:diaVenc(p.rec),
       pago:estaPago(p.rec.id,M)})),
     assinaturasEParcelas:projR.map(p=>({nome:p.rec.descricao,valor:+p.valor,situacao:p.selo})),
