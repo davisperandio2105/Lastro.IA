@@ -791,8 +791,12 @@ pre{background:#FAF8F3;border:1px solid var(--line);border-radius:9px;padding:14
    A anon key é pública por design; quem protege os dados é o RLS.
    ===================================================================== */
 const CONFIG={
-  url:'',   // ex: 'https://gwwvzlyvhmudpejccjsu.supabase.co'
-  key:''    // ex: 'eyJhbGciOi...'  (anon public, nunca a service_role)
+  // ⬇⬇⬇  COLE A SUA ANON KEY ENTRE AS ASPAS ABAIXO  ⬇⬇⬇
+  //      Supabase → Settings → API Keys → "anon public"
+  //      Sem isso, cada pessoa que abrir o site vai ver a tela de conexão.
+  key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3d3Z6bHl2aG11ZHBlamNjanN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMjY0NTMsImV4cCI6MjEwMzcwMjQ1M30.13avAu9ytTVCxVrCgh_2IjSwF3fHAx4RAb8iJOFZyAA',
+
+  url:'https://gwwvzlyvhmudpejccjsu.supabase.co'
 };
 
 /* =====================================================================
@@ -3664,15 +3668,27 @@ setAuthTab('entrar');
 /* autoconexão: CONFIG fixa no arquivo tem prioridade, depois o que ficou salvo */
 (async()=>{
   let cfg=null;
-  if(CONFIG.url&&CONFIG.key) cfg={...CONFIG};
+  if(CONFIG.url&&CONFIG.key){
+    cfg={...CONFIG};
+    /* app publicado: ninguem alem de voce precisa ver a tela de conexao */
+    $('#stepConfig').classList.add('hide');
+    $('#stepRestaurando').classList.remove('hide');
+  }
   else if(storageOk()){ try{ cfg=JSON.parse(localStorage.getItem('trilha_cfg')||'null'); }catch(e){} }
   if(cfg&&cfg.url&&cfg.key){
     $('#cUrl').value=cfg.url; $('#cKey').value=cfg.key;
     try{ await conectar(cfg.url,cfg.key,true); }
     catch(e){
       $('#stepRestaurando').classList.add('hide');
-      $('#stepConfig').classList.remove('hide');
-      msg('#cfgMsg','Não deu para reconectar sozinho: '+e.message,'err');
+      if(CONFIG.key){
+        /* erro de configuracao do dono, nao do visitante */
+        $('#stepAuth').classList.remove('hide');
+        msg('#authMsg','Não consegui falar com o servidor agora. Tente recarregar em instantes.','err');
+        console.error('[conexão]',e);
+      }else{
+        $('#stepConfig').classList.remove('hide');
+        msg('#cfgMsg','Não deu para reconectar sozinho: '+e.message,'err');
+      }
     }
     return;
   }
