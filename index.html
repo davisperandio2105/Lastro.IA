@@ -2,7 +2,15 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=5">
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#151C19">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lastro">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="icon" href="./icon-192.png">
 <title>Lastro.IA — Clareza sobre seus compromissos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -294,6 +302,89 @@ pre{background:#FAF8F3;border:1px solid var(--line);border-radius:9px;padding:14
 .invrow:last-child{border-bottom:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
+/* ===================== CELULAR ===================== */
+@media (max-width:960px){
+  html{-webkit-text-size-adjust:100%}
+  body{overflow-x:hidden}
+  /* iOS dá zoom em campo com fonte menor que 16px */
+  input,select,textarea{font-size:16px!important}
+
+  .app{grid-template-columns:1fr}
+  main{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+
+  /* barra inferior respeitando a área do gesto do iPhone */
+  .side{padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+  nav button{min-height:52px}
+  nav button .ic{width:20px;height:20px}
+
+  .topbar{padding:10px 14px calc(10px);top:0}
+  .topbar h1{font-size:16px}
+  .topbar .date{display:none}
+  .conn{display:none}
+  .subnav{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+  .wrap{padding:14px 12px}
+  .card>.bd{padding:13px}
+  .card>header{padding:11px 13px;flex-wrap:wrap;gap:6px}
+  .grid{gap:11px}
+  .mb{margin-bottom:11px}
+
+  .hero{padding:18px 14px 16px}
+  .folga{font-size:27px}
+  .folgaFx{gap:12px;font-size:11.5px}
+
+  /* linhas: valor sempre visível, resto quebra */
+  .row{padding:11px 0;gap:9px;min-height:52px}
+  .row .t{white-space:normal;line-height:1.35}
+  .chip{display:none}
+  .row .val{font-size:14px}
+  .del,.mover{min-width:34px;min-height:34px}
+  .check{width:22px;height:22px}
+  .grip{display:none}
+
+  /* formulários em uma coluna */
+  .form{grid-template-columns:1fr}
+  .btn{min-height:44px}
+  .btn.sm{min-height:36px}
+
+  /* modal vira folha de baixo */
+  .ov{place-items:end center;padding:0}
+  .mdl{max-width:100%;border-radius:16px 16px 0 0;max-height:92vh;display:flex;flex-direction:column}
+  .mdl .mbd{max-height:none;flex:1;padding-bottom:20px}
+  .mdl footer{padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+  @keyframes pop{from{transform:translateY(24px);opacity:.6}}
+
+  /* chat ocupa a tela */
+  .chat{height:calc(100vh - 190px);min-height:0}
+  .msg{max-width:88%}
+  .hints{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+  .hints button{white-space:nowrap;flex:none}
+  .composer{padding-bottom:12px}
+
+  /* semana e calendário mais folgados para o dedo */
+  .dias{gap:4px}
+  .dia{padding:8px 2px}
+  .dia .dn{font-size:15px}
+  .cal .d{padding:4px;font-size:10.5px}
+  .cartao{width:158px}
+
+  /* gráficos e KPIs */
+  .kpi .v{font-size:20px}
+  .zone{min-height:56px}
+}
+
+/* botão flutuante de lançamento rápido */
+.fab{display:none}
+@media (max-width:960px){
+  .fab{
+    display:grid;place-items:center;position:fixed;right:16px;
+    bottom:calc(76px + env(safe-area-inset-bottom));
+    width:54px;height:54px;border-radius:50%;background:var(--g);color:#fff;
+    box-shadow:0 6px 20px rgba(28,27,24,.28);z-index:25;font-size:26px;line-height:1
+  }
+  .fab:active{transform:scale(.94)}
+}
+
 /* telas largas: mais respiro e mais colunas onde faz sentido */
 @media (min-width:1500px){
   .wrap{padding:26px 40px}
@@ -326,7 +417,7 @@ pre{background:#FAF8F3;border:1px solid var(--line);border-radius:9px;padding:14
 <div class="gate" id="gate">
   <div class="gatebox">
     <div class="gatelogo">
-      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#3F6B4A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><path d="M8 19V9l4-4 4 4v10"/><path d="M12 19v-5"/></svg>
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#3F6B4A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.2"/><path d="M12 7.2V21"/><path d="M8 10h8"/><path d="M4.8 14.5a7.2 7.2 0 0 0 14.4 0"/></svg>
       <b>Lastro<i>.IA</i></b>
     </div>
 
@@ -372,7 +463,7 @@ pre{background:#FAF8F3;border:1px solid var(--line);border-radius:9px;padding:14
 <div class="app hide" id="app">
   <aside class="side">
     <div class="logo">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3F6B4A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><path d="M8 19V9l4-4 4 4v10"/><path d="M12 19v-5"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3F6B4A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.2"/><path d="M12 7.2V21"/><path d="M8 10h8"/><path d="M4.8 14.5a7.2 7.2 0 0 0 14.4 0"/></svg>
       <b>Lastro<i>.IA</i></b>
     </div>
     <div class="who">
@@ -488,7 +579,7 @@ pre{background:#FAF8F3;border:1px solid var(--line);border-radius:9px;padding:14
         <div class="grid g2 mb">
           <div class="card"><header><span class="cap" id="tTitulo">Tarefas de hoje</span><button class="btn ghost sm" id="novaTarefa">+ Nova</button></header>
             <div class="bd"><div class="rows zone" id="tLista" data-zona="ativas"></div>
-              <p class="dica">Arraste para reordenar ou jogar no banco. No celular, use a seta.</p></div></div>
+              <p class="dica" id="dicaArraste">Arraste para reordenar ou jogar no banco. No celular, use a seta.</p></div></div>
           <div class="card"><header><span class="cap">Banco de tarefas</span><span class="cap" id="bAux"></span></header>
             <div class="bd"><div class="rows zone banco" id="tBanco" data-zona="banco"></div></div></div>
         </div>
@@ -690,6 +781,7 @@ pre{background:#FAF8F3;border:1px solid var(--line);border-radius:9px;padding:14
 
     </div>
   </main>
+  <button class="fab" id="fab" title="Lançar rápido" aria-label="Lançar um gasto">+</button>
 </div>
 
 <script>
@@ -3523,6 +3615,46 @@ Deno.serve(async (req) => {
 function renderTudo(){
   $('#atStatus').textContent=S.endpoint?'conversa completa':'respostas diretas';
   renderConversa(); renderPerfil(); renderDashboard(); renderCompromissos(); renderTarefas(); renderMetas(); renderFin(); renderAgenda(); }
+/* lançamento rápido: o gesto mais comum no celular é registrar na hora do gasto */
+async function lancarRapido(){
+  const v=await modal({titulo:'Lançar agora',
+    campos:[
+      {id:'desc',label:'O que foi',placeholder:'Padaria, uber, mercado…',obrigatorio:true},
+      {id:'valor',label:'Valor (R$)',tipo:'number',step:'0.01',obrigatorio:true},
+      {id:'tipo',label:'Tipo',tipo:'select',valor:'despesa',
+        opcoes:[{valor:'despesa',label:'Saída'},{valor:'receita',label:'Entrada'}]},
+      {id:'cat',label:'Categoria',tipo:'select',valor:S.categorias[0]?.id,
+        opcoes:S.categorias.map(c=>({valor:c.id,label:c.nome}))},
+      {id:'pag',label:'Pagamento',tipo:'select',valor:'',
+        opcoes:[{valor:'',label:'Dinheiro / Pix / Débito'},
+                ...S.cartoes.map(c=>({valor:c.id,label:c.nome}))]},
+      {id:'data',label:'Data',tipo:'date',valor:HOJE}],
+    ok:'Lançar'});
+  if(!v) return;
+  /* se a descrição indica a categoria, usa a adivinhada em vez da primeira da lista */
+  const palpite=adivinhaCategoria(v.desc.toLowerCase(),v.tipo);
+  const cat = (+v.cat===S.categorias[0]?.id && palpite) ? palpite.id : +v.cat;
+  try{
+    await db.inserirLancamento({descricao:v.desc,valor:v.valor,tipo:v.tipo,
+      categoria_id:cat,cartao_id:v.pag?+v.pag:null,pago:!v.pag,
+      data:v.data||HOJE});
+    renderTudo();
+  }catch(e){ aviso('Não deu para lançar',e.message); }
+}
+$('#fab').onclick=lancarRapido;
+
+/* no toque, arrastar linha nao funciona bem: a dica muda e o grip some */
+const noCelular=matchMedia('(max-width:960px)').matches||('ontouchstart' in window);
+if(noCelular){
+  const d=$('#dicaArraste');
+  if(d) d.textContent='Use a seta para mover a tarefa entre hoje e o banco.';
+}
+
+/* PWA: instalar na tela inicial e abrir offline */
+if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
+  navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('[sw]',e));
+}
+
 $('#btnOlho').onclick=alternarVisibilidade; pintaOlho();
 if(S.endpoint) $('#cfgEndpoint').value=S.endpoint;
 $('#cfgPerfil').onclick=menuFoto;
