@@ -1115,11 +1115,22 @@ function devedorDe(filtro){
 const soma    =(tipo,m=MES)=>realizados(m).filter(l=>l.tipo===tipo).reduce((s,l)=>s+Number(l.valor),0);
 const somaPrev=(tipo,m=MES)=>movimentos(m).filter(l=>l.tipo===tipo).reduce((s,l)=>s+Number(l.valor),0);
 /* tudo que ja passou da data e continua em aberto, de qualquer mes carregado */
+/* Compra no cartão não vence na data da compra — vence quando a fatura
+   em que ela caiu vence. Sem cartão, vale a própria data. */
+function venceEm(l){
+  const c=l.cartao_id?cartaoDe(l.cartao_id):null;
+  if(!c) return l.data;
+  const fatura=dataVencimentoFatura(compCaixa(l),c);
+  return fatura>l.data?fatura:l.data;     // nunca antes da própria compra
+}
+
 function vencidas(){
   const out=[];
-  S.lancamentos.filter(l=>l.tipo==='despesa'&&l.pago===false&&l.data<HOJE).forEach(l=>{
+  S.lancamentos.filter(l=>l.tipo==='despesa'&&l.pago===false).forEach(l=>{
+    const v=venceEm(l);
+    if(v>=HOJE) return;
     const c=l.cartao_id?cartaoDe(l.cartao_id):null;
-    out.push({nome:l.descricao,valor:Number(l.valor),data:l.data,
+    out.push({nome:l.descricao,valor:Number(l.valor),data:v,
       item:l,virtual:false,cartao:c?.nome});
   });
 
@@ -1871,8 +1882,10 @@ function renderCompromissos(){
     if(!estaPago(pr.rec.id,MES)&&pr.data>=HOJE&&pr.data<=limite)
       aVir.push({nome:pr.rec.descricao,valor:pr.valor,data:pr.data,item:pr.rec,virtual:true,mes:MES});
   });
-  S.lancamentos.filter(l=>l.tipo==='despesa'&&l.pago===false&&l.data>=HOJE&&l.data<=limite)
-    .forEach(l=>aVir.push({nome:l.descricao,valor:Number(l.valor),data:l.data,item:l,virtual:false}));
+  S.lancamentos.filter(l=>l.tipo==='despesa'&&l.pago===false).forEach(l=>{
+    const v=venceEm(l);
+    if(v>=HOJE&&v<=limite) aVir.push({nome:l.descricao,valor:Number(l.valor),data:v,item:l,virtual:false});
+  });
 
   const lista=[...venc,...aVir.sort((a,b)=>a.data.localeCompare(b.data))].slice(0,8);
   const tot=[...venc,...aVir].reduce((s2,x)=>s2+x.valor,0);
